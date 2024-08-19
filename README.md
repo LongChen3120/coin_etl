@@ -1,7 +1,7 @@
 ## MÔ TẢ
 - Dự án thu thập, xử lý, lưu trữ, trực quan thông tin dữ liệu tiền ảo trên sàn Binance.
 
-## Công nghệ sử dụng
+## CÔNG NGHỆ SỬ DỤNG
 - Python: websocket-client, kafka-python, pyspark
 - Docker, Mysql, Kafka, Spark
 
