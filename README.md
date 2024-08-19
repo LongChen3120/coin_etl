@@ -12,9 +12,9 @@
 
 2. Tạo môi trường cho dự án
 - Chạy lệnh sau để tạo môi trường ảo cho dự án:
-'''python -m venv etl_venv'''
+```python -m venv etl_venv```
 - Cài đặt các thư viện cho dự án:
-'''pip install -r requirements.txt'''
+```pip install -r requirements.txt```
 
 ### Quy trình ETL
 ![coin_etl](https://github.com/user-attachments/assets/aece0f5a-aca0-4818-8d37-adff050a358a)
