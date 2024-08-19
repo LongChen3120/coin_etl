@@ -20,6 +20,12 @@
 
 ### 2. Quy trình ETL
 ![coin_etl](https://github.com/user-attachments/assets/aece0f5a-aca0-4818-8d37-adff050a358a)
+- **Producer**: Định nghĩa lớp kafkaProducer với 2 phương thức chính là khởi tạo producer và gửi message tới Kafka theo topic
+- **source_websocket**: Khởi tạo các đối tượng từ lớp kafkaProducer, thực hiện gửi message nhận được từ Binance Kafka theo topic 
+- **Consumer**: Định nghĩa lớp sparkCunsumer với nhiều phương thức xử lý dữ liệu cho từng loại message, phương thức writeStream ghi dữ liệu theo lô vào Mysql
+- **Database**: vì dữ liệu các message không có ràng buộc nên các bảng không có liên quan tới nhau, mỗi bảng sẽ lưu dữ liệu từ 1 topic. Dữ liệu tăng lên khá nhanh, mỗi bảng có thể tăng vài triệu hàng một ngày.
+- **Superset**: Kết nối tới Mysql, tạo Dashboard, tạo Chart từ một số cột( ví dụ thời gian với giá của 1 loại tiền ảo), sau đó thêm Chart vào Dashboard.
 
 ### 3. Dashboard
+- Dữ liệu được Superset hiển thị theo thời gian thực
 ![image](https://github.com/user-attachments/assets/855a0318-dd07-4a5b-a9cc-d0e8deac01f0)
