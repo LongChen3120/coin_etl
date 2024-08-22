@@ -1,9 +1,14 @@
+import sys
+import _env
+sys.path.append(_env.SYS_PATH_APPEND)
 import kafka
+
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.functions import *
+from utils import thread_pool
 
-import _env
+
 
 
 class kafkaConsumer():
@@ -34,20 +39,15 @@ class kafkaConsumer():
 
 class sparkConsumer():
     connection_string = _env.CONNECTION_STRING_MYSQL
-    def __init__(self, app_name) -> None:
-        self.ss = SparkSession.builder \
-            .appName(app_name) \
-            .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,mysql:mysql-connector-java:8.0.30") \
-            .master("local[*]") \
-            .getOrCreate()
-
+    def __init__(self, ss) -> None:
+        self.ss = ss
         self.df = None
 
-    def read_stream(self):
+    def read_stream(self, topic_name):
         self.df = self.ss.readStream \
                 .format("kafka") \
                 .option("kafka.bootstrap.servers", _env.BROKER_KAFKA_IP) \
-                .option("subscribe", "crypto-price") \
+                .option("subscribe", topic_name) \
                 .option("startingOffsets", "latest") \
                 .load()
     
@@ -64,10 +64,9 @@ class sparkConsumer():
 
     def structed_message(self, schema):
         '''
-        message co dang chuoi [{}, {},...]
-        dung from_json phan tich cu phap {}, chuyen thanh cau truc du lieu duoc xac dinh trong schema
+        dung from_json phan tich cu phap message, chuyen thanh cau truc du lieu duoc xac dinh trong schema
         '''
-        self.df = self.df.withColumn("structed_message", from_json(self.df["value"], ArrayType(schema))).select("structed_message")
+        self.df = self.df.withColumn("structed_message", from_json(self.df["value"], schema)).select("structed_message")
 
     def explode_message(self):
         '''
@@ -100,12 +99,51 @@ class sparkConsumer():
             col("explode_message").getField("Weighted_average_price").alias("Weighted_average_price").cast(FloatType())
         )
 
-    def write_to_mysql(self, df, epoch_id):
+    def format_message_aggtrade(self):
+        '''
+        doi kieu du lieu trong cac hang chua doi tuong {}
+        them vao cot
+        '''
+        self.df = self.df.select(date_format(from_unixtime(col("structed_message").getField("Event_time") / 1000), "yyyy-MM-dd HH:mm:ss.SSS").alias("Event_time"),
+            col("structed_message").getField("Aggregate_trade_ID").alias("Aggregate_trade_ID").cast(LongType()),
+            col("structed_message").getField("Symbol").alias("Symbol").cast(StringType()),
+            col("structed_message").getField("Price").alias("Price").cast(FloatType()),
+            col("structed_message").getField("Quantity").alias("Quantity").cast(FloatType()),
+            col("structed_message").getField("First_trade_ID").alias("First_trade_ID").cast(LongType()),
+            col("structed_message").getField("Last_trade_ID").alias("Last_trade_ID").cast(LongType()),
+            date_format(from_unixtime(col("structed_message").getField("Trade_time") / 1000), "yyyy-MM-dd HH:mm:ss.SSS").alias("Trade_time")
+        )
+
+    def format_message_candlestick(self):
+        '''
+        doi kieu du lieu trong cac hang chua doi tuong {}
+        them vao cot
+        '''
+        self.df = self.df.select(date_format(from_unixtime(col("structed_message").getField("Event_time") / 1000), "yyyy-MM-dd HH:mm:ss.SSS").alias("Event_time"),
+                col("structed_message").getField("Symbol").alias("Symbol").cast(StringType()),
+                date_format(from_unixtime(col("structed_message").getField("k").getField("Kline_start_time") / 1000), "yyyy-MM-dd HH:mm:ss.SSS").alias("Kline_start_time"),
+                date_format(from_unixtime(col("structed_message").getField("k").getField("Kline_close_time") / 1000), "yyyy-MM-dd HH:mm:ss.SSS").alias("Kline_close_time"),
+                col("structed_message").getField("k").getField("Time_interval").alias("Time_interval").cast(StringType()),
+                col("structed_message").getField("k").getField("First_trade_ID").alias("First_trade_ID").cast(LongType()),
+                col("structed_message").getField("k").getField("Last_trade_ID").alias("Last_trade_ID").cast(LongType()),
+                col("structed_message").getField("k").getField("Open_price").alias("Open_price").cast(FloatType()),
+                col("structed_message").getField("k").getField("Close_price").alias("Close_price").cast(FloatType()),
+                col("structed_message").getField("k").getField("High_price").alias("High_price").cast(FloatType()),
+                col("structed_message").getField("k").getField("Low_price").alias("Low_price").cast(FloatType()),
+                col("structed_message").getField("k").getField("Base_asset_volume").alias("Base_asset_volume").cast(FloatType()),
+                col("structed_message").getField("k").getField("Number_of_trades").alias("Number_of_trades").cast(FloatType()),
+                col("structed_message").getField("k").getField("Is_this_kline_closed").alias("Is_this_kline_closed").cast(BooleanType()),
+                col("structed_message").getField("k").getField("Quote_asset_volume").alias("Quote_asset_volume").cast(FloatType()),
+                col("structed_message").getField("k").getField("Taker_buy_base_asset_volume").alias("Taker_buy_base_asset_volume").cast(FloatType()),
+                col("structed_message").getField("k").getField("Taker_buy_quote_asset_volume").alias("Taker_buy_quote_asset_volume").cast(FloatType())
+                )
+
+    def write_to_mysql(self, df, epoch_id, table_name):
         df.write \
             .format("jdbc") \
             .option("url", _env.CONNECTION_STRING_MYSQL) \
             .option("driver", "com.mysql.cj.jdbc.Driver") \
-            .option("dbtable", _env.TABLE_NAME_CRYPTO_PRICE) \
+            .option("dbtable", table_name) \
             .option("user", _env.USERNAME_MYSQL) \
             .option("password", _env.PASSWORD_MYSQL) \
             .mode("append") \
@@ -117,24 +155,54 @@ class sparkConsumer():
                     .format("console") \
                     .option("truncate", "false") \
                     .start()
-        query.awaitTermination()
+        return query
 
-    def write_stream_to_mysql(self):
+    def write_stream_to_mysql(self, table_name):
         query = self.df.writeStream \
-                    .foreachBatch(self.write_to_mysql) \
+                    .foreachBatch(lambda df, epoch_id: self.write_to_mysql(df, epoch_id, table_name)) \
                     .outputMode("append") \
                     .start()
-        query.awaitTermination()
+        return query
 
+if __name__ == "__main__":
+    # consumer_1 = kafkaConsumer(_env.TOPIC_AGGTRADE, _env.CONSUMER_GROUP)
+    # consumer_1.print_message()
+    
+    ss = SparkSession.builder \
+        .appName("spark consumer") \
+        .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,mysql:mysql-connector-java:8.0.30") \
+        .master("local[*]") \
+        .getOrCreate()
 
+    spark_consumer_market_price = sparkConsumer(ss)
+    spark_consumer_aggtrade = sparkConsumer(ss)
+    spark_consumer_candlestick = sparkConsumer(ss)
 
-# consumer_1 = kafkaConsumer(_env.TOPIC_CRYPTO_PRICE, _env.CONSUMER_GROUP)
-# consumer_1.print_message()
+    # xu ly message tu topic crypto-price
+    spark_consumer_market_price.read_stream(_env.TOPIC_CRYPTO_PRICE)
+    spark_consumer_market_price.replace_key(_env.REPLACEMENTS_TICKERS_STREAMS)
+    spark_consumer_market_price.structed_message(_env.SCHEMA_TICKERS_STREAMS)
+    spark_consumer_market_price.explode_message()
+    spark_consumer_market_price.format_message_tickers_streams()
+    # query_spark_consumer_market_price = spark_consumer_market_price.write_stream_console()
+    query_spark_consumer_market_price = spark_consumer_market_price.write_stream_to_mysql(_env.TABLE_NAME_CRYPTO_PRICE)
 
-spark_consumer_1 = sparkConsumer("spark consumer")
-spark_consumer_1.read_stream()
-spark_consumer_1.replace_key(_env.REPLACEMENTS_TICKERS_STREAMS)
-spark_consumer_1.structed_message(_env.SCHEMA_TICKERS_STREAMS)
-spark_consumer_1.explode_message()
-spark_consumer_1.format_message_tickers_streams()
-spark_consumer_1.write_stream_to_mysql()
+    # xu ly message tu topic aggtrade
+    spark_consumer_aggtrade.read_stream(_env.TOPIC_AGGTRADE)
+    spark_consumer_aggtrade.replace_key(_env.REPLACEMENTS_AGGTRADE)
+    spark_consumer_aggtrade.structed_message(_env.SCHEMA_AGGTRADE)
+    spark_consumer_aggtrade.format_message_aggtrade()
+    # query_spark_consumer_aggtrade = spark_consumer_aggtrade.write_stream_console()
+    query_spark_consumer_aggtrade = spark_consumer_aggtrade.write_stream_to_mysql(_env.TABLE_NAME_AGGTRADE)
+
+    # xu ly message tu topic candlestick
+    spark_consumer_candlestick.read_stream(_env.TOPIC_CANDLESTICK)
+    spark_consumer_candlestick.replace_key(_env.REPLACEMENTS_CANDLESTICK)
+    spark_consumer_candlestick.structed_message(_env.SCHEMA_CANDLESTICK)
+    spark_consumer_candlestick.format_message_candlestick()
+    # query_spark_consumer_candlestick = spark_consumer_candlestick.write_stream_console()
+    query_spark_consumer_candlestick = spark_consumer_candlestick.write_stream_to_mysql(_env.TABLE_NAME_CANDLESTICK)
+
+    query_spark_consumer_market_price.awaitTermination()
+    query_spark_consumer_aggtrade.awaitTermination()
+    query_spark_consumer_candlestick.awaitTermination()
