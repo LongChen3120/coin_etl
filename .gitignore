@@ -1,0 +1,10 @@
+etl_env
+logs
+
+src/extract/_env.py
+src/extract/__pycache__
+src/load/_env.py
+src/load/test.py
+src/load/__pycache__
+src/utils/_env.py
+src/utils/__pycache__
