@@ -8,3 +8,5 @@ src/load/test.py
 src/load/__pycache__
 src/utils/_env.py
 src/utils/__pycache__
+test
+src/config_private.py
