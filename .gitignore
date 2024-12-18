@@ -1,6 +1,6 @@
 etl_env
 logs
-
+coin_etl_env
 src/extract/_env.py
 src/extract/__pycache__
 src/load/_env.py
