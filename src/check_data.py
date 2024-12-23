@@ -41,10 +41,10 @@ def loop_get_price(symbol):
         for i in range(5):
             try:
                 response = requests.get(config.API_GET_PRICE.format(symbol))
-                response = response.json()
-                print(response)
-                if response["code"] == 200:
-                    data = pandas.DataFrame(response["data"])
+                response_json = response.json()
+                
+                if response_json["code"] == 200:
+                    data = pandas.DataFrame(response_json["data"])
                     if not data.empty:
                         return True, data
                     else:
@@ -56,7 +56,8 @@ def loop_get_price(symbol):
                     time.sleep(1)
                     continue
             except:
-                pass
+                time.sleep(1)
+                print(response.content)
         logger.warning(f"Lỗi sau 5 lần loop")
         return False, pandas.DataFrame()
     except Exception as e:

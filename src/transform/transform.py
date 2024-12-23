@@ -16,4 +16,4 @@ def filter_message_candle(message):
         
         return json.dumps(filtered_message)
     except:
-        return false
+        return False

@@ -26,12 +26,18 @@ PARAM_WEBSOCKET = {
             "bnbusdt@kline_1m",
             "solusdt@kline_1m",
             "xrpusdt@kline_1m",
-            "dogeusdt@kline_1m"
+            "dogeusdt@kline_1m",
+            "avaxusdt@kline_1m",
+            "trxusdt@kline_1m",
+            "linkusdt@kline_1m",
+            "uniusdt@kline_1m",
+            "hbarusdt@kline_1m",
+            "ltcusdt@kline_1m"
         ],
         "id": 1
 }
 
-LIST_SYMBOL = ["BTCUSDT", "ETHUSDT", "ADAUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "BCHUSDT"]
+LIST_SYMBOL = ["BTCUSDT", "ETHUSDT", "ADAUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "DOGEUSDT", "BCHUSDT", "AVAXUSDT", "TRXUSDT", "LINKUSDT", "UNIUSDT", "HBARUSDT", "LTCUSDT", "ETCUSDT", "DOTUSDT"]
 
 NUMB_GET_MESS = {
     "BTCUSDT": {
@@ -63,6 +69,38 @@ NUMB_GET_MESS = {
         "last_time": 0
     },
     "BCHUSDT": {
+        "numb": 0,
+        "last_time": 0
+    },
+    "AVAXUSDT": {
+        "numb": 0,
+        "last_time": 0
+    },
+    "TRXUSDT": {
+        "numb": 0,
+        "last_time": 0
+    },
+    "LINKUSDT": {
+        "numb": 0,
+        "last_time": 0
+    },
+    "UNIUSDT": {
+        "numb": 0,
+        "last_time": 0
+    },
+    "HBARUSDT": {
+        "numb": 0,
+        "last_time": 0
+    },
+    "LTCUSDT": {
+        "numb": 0,
+        "last_time": 0
+    },
+    "ETCUSDT": {
+        "numb": 0,
+        "last_time": 0
+    },
+    "DOTUSDT": {
         "numb": 0,
         "last_time": 0
     }
